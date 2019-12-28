@@ -1,3 +1,3 @@
-import useBookListFetch from './useBookListFetch'
+import useMockableJsonFetch from './useMockableJsonFetch'
 
-export { useBookListFetch }
+export { useMockableJsonFetch }

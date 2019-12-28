@@ -7,16 +7,17 @@ import moment from 'moment';
 import 'moment/locale/zh-cn';
 import 'antd/dist/antd.css';
 import { BookGallery } from './component'
-import { useBookListFetch } from './hook'
+import { useMockableJsonFetch } from './hook'
 import Debugger from './Debugger'
 moment.locale('zh-cn');
+
+useMockableJsonFetch.enableMock = true
 
 const AppContext = React.createContext();
 
 function App() {
   const [account, setAccount] = useState(null)
   const [title, setTitle] = useState()
-  const bookList = useBookListFetch()
   useEffect(() => {
     (async () => {
       const response = await fetch('/config.json')
@@ -63,8 +64,7 @@ function App() {
           overflowY: 'auto'
         }}>
           <Layout.Content style={{ padding: '1rem 3rem' }}>
-            <Typography.Title level={2} children="书库大全" />
-            <BookGallery {...{ bookList }} />
+            <BookGallery />
           </Layout.Content>
           <Layout.Footer>
             某某大学版权所有
