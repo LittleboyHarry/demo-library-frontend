@@ -3,12 +3,13 @@ import { Skeleton, Card, Result, Empty, List } from 'antd';
 import { useMockableJsonFetch } from '../hook'
 import { category as virtualCategory } from '../MockData'
 
-export default function CategoryPage() {
+export default function CategoryPage({ loseFocus }) {
 	const { loading, success, data } = useMockableJsonFetch({
 		name: '分类',
 		url: '/category',
-		mockData: virtualCategory
-	},[])
+		mockData: virtualCategory,
+		blocked: loseFocus
+	}, [])
 
 	return <Skeleton active {...{ loading }}>
 		{success

@@ -134,7 +134,7 @@ const mockBlacklist = new Set()
 
 let countOfOpeningFetch = 0;
 
-function useMockableJsonFetch({ name, url, method = 'get', body, defaultData, mockData, onFinish }, dependency) {
+function useMockableJsonFetch({ name, url, method = 'get', body, defaultData, mockData, onFinish, blocked }, dependency) {
 
 	const [result, dispatch] = useReducer(resultReducer, {
 		loading: true,
@@ -146,6 +146,8 @@ function useMockableJsonFetch({ name, url, method = 'get', body, defaultData, mo
 
 
 	useAsync(async () => {
+		if (blocked) return
+
 		if (++countOfOpeningFetch > limitConnection)
 			throw new Error('太多请求')
 
@@ -194,7 +196,7 @@ function useMockableJsonFetch({ name, url, method = 'get', body, defaultData, mo
 				dispatch(new FailureEvent(defaultData, onFinish))
 			}
 		}
-	}, dependency)
+	}, [...dependency, blocked])
 
 	return result
 }

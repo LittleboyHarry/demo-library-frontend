@@ -1,8 +1,7 @@
 import GoBackEvent from './GoBackEvent'
-import AdminLoginEvent from './AdminLoginEvent'
-import AdminLogoutEvent from './AdminLogoutEvent'
+import LoginEvent from './LoginEvent'
+import LogoutEvent from './LogoutEvent'
 import SiderCollapseEvent from './SiderCollapseEvent'
-import SearchEvent from './SearchEvent'
 import PageSegueEvent from './PageSegueEvent'
 
-export { GoBackEvent, AdminLogoutEvent, AdminLoginEvent, SiderCollapseEvent, SearchEvent, PageSegueEvent }
+export { GoBackEvent, LogoutEvent, LoginEvent, SiderCollapseEvent, PageSegueEvent }

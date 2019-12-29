@@ -1,5 +1,5 @@
-import React, { useContext, useReducer, useEffect, useState } from 'react';
-import { useAsync } from 'react-use'
+import React, { useReducer, useEffect, useState } from 'react';
+import { useAsync, useDebounce } from 'react-use'
 import './App.css';
 import { ConfigProvider as AntdConfigProvider, Layout, Typography, Menu, Button, Input } from 'antd';
 import zhCN from 'antd/es/locale/zh_CN';
@@ -7,7 +7,7 @@ import moment from 'moment';
 import 'moment/locale/zh-cn';
 import 'antd/dist/antd.css';
 import { makeStyles } from '@material-ui/styles';
-import { useMockableJsonFetch } from './hook'
+import { useMockableJsonFetch, useAppContext } from './hook'
 import { PageKeys, PageMap } from './page'
 import * as Event from './event'
 import Debugger from './Debugger'
@@ -20,6 +20,7 @@ const { location, history } = window
 //#endregion 初始化配置
 
 const defaultPageKey = PageKeys.EXPLORE
+const searchDebounceTime = 300
 
 function isObjectInList(object, list) {
   return list.indexOf(object) !== -1
@@ -33,6 +34,7 @@ const defaultContext = {
   compactedLayout: false,
   collapseSider: true,
   browsingBookId: null,
+  searchingValue: ''
 }
 const splitedPath = location.pathname.split('/');
 const keyInUrl = splitedPath[1]
@@ -90,6 +92,15 @@ function changeStateByPageSegueEvent(state, event) {
       state.browsingBookId = bookId
       document.title = `《${bookName}》介绍`
       break;
+    case PageKeys.SEARCH:
+      state.searchingValue = event.data.value
+      break;
+    case PageKeys.LOGIN:
+      document.title = `登陆${state.title}`
+      break;
+    case PageKeys.MYSELF:
+      document.title = `登陆${state.title}`
+      break;
     default:
       throw new Error('跳转到程序无法解析的页面')
   }
@@ -103,17 +114,9 @@ const handlerMapper = {
   [Event.GoBackEvent]: (state, event) => {
     const { state: oldEvent } = history
     if (oldEvent)
-      changeStateByPageSegueEvent(oldEvent, event)
+      changeStateByPageSegueEvent(state, oldEvent)
     else
       state.pageKey = defaultPageKey
-  },
-  [Event.AdminLoginEvent]: (state, event) => {
-    state.user = {
-      username: event.username
-    }
-  },
-  [Event.AdminLogoutEvent]: (state, event) => {
-    state.user = null
   },
   [Event.SiderCollapseEvent]: (state, event) => {
     state.collapseSider = event.collapse
@@ -123,24 +126,34 @@ const handlerMapper = {
     const { targetPageKey } = event
 
     //#region 历史记录更新
-    if (targetPageKey === PageKeys.BOOK) {
-      const { bookId } = event.data
-      history.pushState(event, null, `/${targetPageKey}/${bookId}`)
-    } else {
-      if (currentPageKey !== targetPageKey) {
-        if (
-          isObjectInList(targetPageKey, navPageList) &&
-          isObjectInList(currentPageKey, navPageList)
-        )
-          history.replaceState(event, null, `/${targetPageKey}`)
-        else
-          history.pushState(event, null, `/${targetPageKey}`)
-      } // else do nothing
+    switch (targetPageKey) {
+      case PageKeys.BOOK:
+        const { bookId } = event.data
+        history.pushState(event, null, `/${targetPageKey}/${bookId}`)
+        break;
+      case PageKeys.SEARCH:
+        break;
+      default:
+        if (currentPageKey !== targetPageKey) {
+          if (
+            isObjectInList(targetPageKey, navPageList) &&
+            isObjectInList(currentPageKey, navPageList)
+          )
+            history.replaceState(event, null, `/${targetPageKey}`)
+          else
+            history.pushState(event, null, `/${targetPageKey}`)
+        } // else do nothing
     }
     //#endregion 历史记录更新
 
     changeStateByPageSegueEvent(state, event)
-  }
+  },
+  [Event.LoginEvent]: (state, event) => {
+    state.user = event.user
+  },
+  [Event.LogoutEvent]: (state, event) => {
+    state.user = null
+  },
 }
 
 function eventReducer(oldState, event) {
@@ -155,7 +168,7 @@ function eventReducer(oldState, event) {
 const navPageList = [PageKeys.EXPLORE]
 if (Config.enableCategoryModule) navPageList.push(PageKeys.CATEGORY)
 function NavMenu({ inSider = false }) {
-  const { pageKey, dispatch } = useContext(AppContext)
+  const { pageKey, dispatch } = useAppContext()
 
   return <Menu
     style={{ lineHeight: '64px' }}
@@ -179,38 +192,79 @@ function NavMenu({ inSider = false }) {
 }
 
 function Header({ onShowSider }) {
-  const { title, user, compactedLayout, dispatch } = useContext(AppContext)
-  const [searchValue, setSearchValue] = useState('')
+  const { title, user, compactedLayout, dispatch } = useAppContext()
+  const [searchInputedValue, setSearchInputedValue] = useState('')
   const styles = useAppStyles()
   const hasLogin = Boolean(user)
 
+  useDebounce(
+    () => {
+      if (searchInputedValue)
+        dispatch(new Event.PageSegueEvent({
+          target: PageKeys.SEARCH,
+          data: { value: searchInputedValue }
+        }))
+    },
+    searchDebounceTime,
+    [searchInputedValue]
+  );
+
+  const onMyself = () => {
+    dispatch(new Event.PageSegueEvent({
+      target: PageKeys.MYSELF
+    }))
+  }
+
+  const onLogin = () => {
+    dispatch(new Event.PageSegueEvent({
+      target: PageKeys.LOGIN
+    }))
+  }
+
   return <Layout.Header className={styles.Header}>
     {title ?
-      <Typography.Title level={1} style={{ flexGrow: 1 }} onClick={() => {
-        dispatch(new Event.PageSegueEvent({
-          target: PageKeys.EXPLORE
-        }))
-      }} children={title} />
+      <Typography.Title
+        level={1}
+        style={{
+          flexGrow: 1,
+          cursor: 'pointer'
+        }}
+        onClick={() => {
+          dispatch(new Event.PageSegueEvent({
+            target: PageKeys.EXPLORE
+          }))
+        }} children={title} />
       : <div style={{ flexGrow: 1 }} />
     }
     {compactedLayout
-      ? null
+      ? <Button icon="search" ghost shape="circle" onClick={() => {
+        dispatch(new Event.PageSegueEvent({
+          target: PageKeys.SEARCH,
+          data: { value: '' }
+        }))
+      }} />
       : <Input.Search
         placeholder="图书搜索"
         style={{ width: '25vw', marginRight: '1rem' }}
-        value={searchValue}
-        onChange={({ target: { value } }) => { setSearchValue(value) }}
-        onSearch={value => { dispatch(new Event.SearchEvent(value)) }}
+        value={searchInputedValue}
+        onChange={({ target: { value } }) => { setSearchInputedValue(value) }}
+        onSearch={value => {
+          setSearchInputedValue('')
+          dispatch(new Event.PageSegueEvent({
+            target: PageKeys.SEARCH,
+            data: { value: searchInputedValue }
+          }))
+        }}
         enterButton />}
     {!compactedLayout && <NavMenu />}
     {
       hasLogin
         ? compactedLayout
-          ? <Button className={styles.UserButton} shape="circle" icon="user" />
-          : <Button className={styles.UserButton} shape="round" icon="user">我</Button>
+          ? <Button className={styles.UserButton} ghost shape="circle" icon="user" onClick={onMyself} />
+          : <Button className={styles.UserButton} shape="round" icon="user" onClick={onMyself}>我</Button>
         : compactedLayout
-          ? <Button className={styles.UserButton} ghost shape="circle" icon="login" />
-          : <Button className={styles.UserButton} ghost shape="round" icon="login">管理员</Button>
+          ? <Button className={styles.UserButton} ghost shape="circle" icon="login" onClick={onLogin} />
+          : <Button className={styles.UserButton} ghost shape="round" icon="login" onClick={onLogin}>管理员</Button>
     }
     {
       compactedLayout
@@ -253,7 +307,7 @@ function ContentContainer({ currentPageKey, footer }) {
         const PageComponent = PageMap[key].component
         const looking = key === currentPageKey
         return (<div key={key} {...!looking && { style: { display: 'none' } }}>
-          <PageComponent isBackground={!looking} />
+          <PageComponent loseFocus={!looking} />
         </div>)
       })}
     </Layout.Content>

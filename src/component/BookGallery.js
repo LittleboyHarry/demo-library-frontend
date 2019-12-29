@@ -1,9 +1,8 @@
-import React, { useContext } from 'react';
-import { useMockableJsonFetch } from './../hook'
+import React from 'react';
+import { useMockableJsonFetch, useAppContext } from '../hook'
 import { Card, Typography, Skeleton, Button, Result, Empty, List } from 'antd';
 import * as MockData from '../MockData'
 import { makeStyles } from '@material-ui/styles'
-import App from '../App'
 import { PageSegueEvent } from '../event'
 import { PageKeys } from '../page'
 
@@ -20,7 +19,7 @@ const useStyles = makeStyles({
 
 export default function BookGallery({ disabled = false }) {
 	// TODO: 增加图书分页查询功能	
-	const { dispatch } = useContext(App.Context)
+	const { dispatch } = useAppContext()
 	const styles = useStyles()
 	const { loading, success, data } = useMockableJsonFetch({
 		name: '所有图书',
@@ -40,26 +39,28 @@ export default function BookGallery({ disabled = false }) {
 							grid={{ gutter: 12, xs: 1, sm: 2, md: 3, lg: 4 }}
 							dataSource={data}
 							renderItem={(book, index) => (
-								<List.Item>
-									<Card
-										type="inner"
-										style={{ cursor: 'pointer' }}
-										onClick={() => {
-											dispatch(new PageSegueEvent({
-												target: PageKeys.BOOK,
-												data: {
-													bookId: index,
-													bookName: book.name
-												}
-											}))
-										}}
-										title={
-											<span title={book.name}>{book.name}</span>}
-									>
-										<p>作者：{book.author}</p>
-										<p>出版社：{book.press}</p>
-									</Card>
-								</List.Item>
+								<List.Item
+									children={
+										<Card
+											key={index}
+											type="inner"
+											style={{ cursor: 'pointer' }}
+											onClick={() => {
+												dispatch(new PageSegueEvent({
+													target: PageKeys.BOOK,
+													data: {
+														bookId: index,
+														bookName: book.name
+													}
+												}))
+											}}
+											title={
+												<span title={book.name}>{book.name}</span>}
+										>
+											<p>作者：{book.author}</p>
+											<p>出版社：{book.press}</p>
+										</Card>
+									} />
 							)}
 						/>
 						: <Empty

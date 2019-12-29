@@ -1,10 +1,10 @@
-import { useContext } from 'react'
-import App from '../App'
+import { useAppContext } from '../hook'
 
 export default function useLoginState() {
-	const { user } = useContext(App.Context)
+	const { user } = useAppContext()
 
 	return {
-		isAdmin: Boolean(user)
+		login: Boolean(user),
+		isAdmin: user ? user.isAdmin : false
 	}
 }
