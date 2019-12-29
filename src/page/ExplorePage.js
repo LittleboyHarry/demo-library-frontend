@@ -1,8 +1,8 @@
 import React from 'react'
-import {BookGallery} from '../component'
+import { BookGallery } from '../component'
 
-function ExplorePage(){
-	return  <BookGallery />
+function ExplorePage({ isBackground }) {
+	return <BookGallery disabled={isBackground} />
 }
 
 export default ExplorePage;

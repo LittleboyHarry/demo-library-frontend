@@ -1,26 +1,33 @@
 import React, { useReducer } from 'react'
 import { useAsync } from 'react-use'
-import { notification, Button, Icon } from 'antd'
+import { notification, Button, Dropdown, Icon, Menu, Typography } from 'antd'
 import { makeStyles } from '@material-ui/styles';
+import { limitConnection } from '../Config'
 
-const defaultParam = {
-	method: 'get',
-	body: null
-}
-
-function resultReducer(oldState, result) {
-	switch (result.constructor) {
-		case SuccessResult:
+function resultReducer(oldState, event) {
+	const { data, handle } = event
+	switch (event.constructor) {
+		case RestartEvent:
+			return {
+				loading: true,
+				success: false,
+				data
+			}
+		case SuccessEvent:
+			countOfOpeningFetch--
+			if (handle) handle(true)
 			return {
 				loading: false,
 				success: true,
-				data: result.data
+				data
 			}
-		case FailureResult:
+		case FailureEvent:
+			countOfOpeningFetch--
+			if (handle) handle(false)
 			return {
 				loading: false,
 				success: false,
-				data: result.data
+				data
 			}
 		default:
 			throw new Error('Invalid result!');
@@ -36,77 +43,140 @@ const useCodeBlockStyle = makeStyles({
 	}
 })
 
-class SuccessResult {
+class RestartEvent {
 	constructor(data) {
-		this.prototype = SuccessResult;
-		this.data = data;
+		this.data = data
 	}
 }
 
-class FailureResult {
-	constructor(initialData) {
-		this.prototype = FailureResult;
-		this.data = initialData;
+class SuccessEvent {
+	constructor(data, handle) {
+		this.data = data
+		this.handle = handle
+	}
+}
+
+class FailureEvent {
+	constructor(data, handle) {
+		this.data = data
+		this.handle = handle
 	}
 }
 
 const mockLoadingIcon = <Icon type="loading" style={{ color: '#108ee9' }} />
 const placement = 'bottomRight'
 
-function HandleMockButtonGroup({ onLogout, onPass, onIntercept }) {
+function HandleMockButtonGroup({ name, notificationKey: key, body, mockData, defaultData, onFinish, dispatch }) {
+	const printButton = <Button
+		style={{ marginRight: '2rem' }}
+		type="link"
+		size="small"
+		onClick={() => { console.log(body) }}>
+		请求数据
+	</Button>
+
+	const passAllMenu = <Menu onClick={() => {
+		mockWhitelist.add(name)
+		notification.close(key)
+		dispatch(new SuccessEvent(mockData, onFinish))
+	}}>
+		<Menu.Item key="1">
+			<Icon type="check-circle" />
+			以后此类别全部通过
+ 		</Menu.Item>
+	</Menu>
+
+	const passButton = <Dropdown.Button
+		style={{ marginRight: '1rem' }}
+		type="primary"
+		size="small"
+		icon={<Icon type="down" />}
+		onClick={() => {
+			notification.close(key)
+			dispatch(new SuccessEvent(mockData, onFinish))
+		}}
+		overlay={passAllMenu}>
+		通过
+	</Dropdown.Button>
+
+
+	const denyAllMenu = <Menu onClick={() => {
+		mockBlacklist.add(name)
+		notification.close(key)
+		dispatch(new FailureEvent(defaultData, onFinish))
+	}}>
+		<Menu.Item key="1">
+			<Icon type="stop" />
+			以后此类别全部拦截
+		</Menu.Item>
+	</Menu>
+
+	const denyButton = <Dropdown.Button
+		type="danger"
+		size="small"
+		icon={<Icon type="down" />}
+		onClick={() => {
+			notification.close(key)
+			dispatch(new FailureEvent(defaultData, onFinish))
+		}}
+		overlay={denyAllMenu}>
+		拦截</Dropdown.Button>
+
 	return <>
-		<Button style={{ marginRight: '3rem' }}
-			type="link" size="small" onClick={onLogout}>
-			输出数据</Button>
-		<Button style={{ marginRight: '1rem' }}
-			type="primary" size="small" onClick={onPass}>
-			通过</Button>
-		<Button
-			type="danger" size="small" onClick={onIntercept}>
-			拦截</Button>
+		{printButton}
+		{passButton}
+		{denyButton}
 	</>
 }
 
-function useMockableJsonFetch(name, param, initialData = null, mockData = null) {
-	const { url, method, body } = { ...defaultParam, ...param }
+const mockWhitelist = new Set()
+const mockBlacklist = new Set()
+
+let countOfOpeningFetch = 0;
+
+function useMockableJsonFetch({ name, url, method = 'get', body, defaultData, mockData, onFinish }, dependency) {
 
 	const [result, dispatch] = useReducer(resultReducer, {
 		loading: true,
 		success: false,
-		data: initialData
+		data: defaultData
 	})
 
 	const codeBlockStyle = useCodeBlockStyle()
 
+
 	useAsync(async () => {
+		if (++countOfOpeningFetch > limitConnection)
+			throw new Error('太多请求')
+
+		dispatch(new RestartEvent(defaultData));
 		const startTimestamp = new Date()
+
 		if (useMockableJsonFetch.enableMock) {
-			const key = `request-${name}-${startTimestamp}-${Math.random()}`
-			setTimeout(() => {
-				notification.open({
-					message: `模拟请求 - ${name}`,
-					description: `URL: ${url}`,
-					icon: mockLoadingIcon,
-					key,
-					placement,
-					btn: <HandleMockButtonGroup
-						onLogout={() => { console.log(body) }}
-						onPass={() => {
-							notification.close(key)
-							dispatch(new SuccessResult(mockData))
-						}}
-						onIntercept={() => {
-							notification.close(key)
-							dispatch(new FailureResult(initialData))
-						}} />,
-					duration: 0,
+			if (mockBlacklist.has(name)) {
+				dispatch(new FailureEvent(defaultData, onFinish))
+			} else if (mockWhitelist.has(name)) {
+				dispatch(new SuccessEvent(mockData, onFinish))
+			} else {
+				const key = `request-${name}-${startTimestamp}-${Math.random()}`
+				setTimeout(() => {
+					notification.open({
+						message: `模拟请求 - ${name}`,
+						description: `URL: ${url}`,
+						icon: mockLoadingIcon,
+						key,
+						placement,
+						btn: <HandleMockButtonGroup {...{ name, notificationKey: key, body, mockData, defaultData, dispatch, onFinish }} />,
+						duration: 0,
+						onClose: () => { countOfOpeningFetch-- }
+					})
 				})
-			})
+			}
 		} else {
 			try {
 				const response = await fetch(url, { method, body })
 				const json = await response.json()
-				dispatch(new SuccessResult(json))
+				dispatch(new SuccessEvent(json, onFinish))
 			} catch (error) {
 				const durationSecond = Math.floor(((new Date()).getTime() - startTimestamp.getTime()) / 1000)
 				notification.error({
@@ -121,10 +191,10 @@ function useMockableJsonFetch(name, param, initialData = null, mockData = null) 
 						</div>),
 					duration: 0
 				})
-				dispatch(new FailureResult(initialData))
+				dispatch(new FailureEvent(defaultData, onFinish))
 			}
 		}
-	}, [body])
+	}, dependency)
 
 	return result
 }

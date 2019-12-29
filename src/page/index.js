@@ -1,4 +1,5 @@
-import ExplorePage from './ExplorePage';
-import CategoryPage from './CategoryPage';
+import ExplorePage from './ExplorePage'
+import CategoryPage from './CategoryPage'
+import BookInfoPage from './BookInfoPage'
 
-export { ExplorePage,CategoryPage }
+export { ExplorePage, CategoryPage, BookInfoPage }

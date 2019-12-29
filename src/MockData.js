@@ -108,3 +108,7 @@ export const category = [
 		"name": "综合性图书"
 	}
 ]
+
+export function getBookInfo(id) {
+	return bookList[id]
+}

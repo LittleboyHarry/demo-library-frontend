@@ -1,4 +1,4 @@
-import React, { useContext, useReducer, useEffect } from 'react';
+import React, { useContext, useReducer, useEffect, useState } from 'react';
 import { useAsync } from 'react-use'
 import './App.css';
 import { ConfigProvider as AntdConfigProvider, Layout, Typography, Menu, Button } from 'antd';
@@ -8,16 +8,18 @@ import 'moment/locale/zh-cn';
 import 'antd/dist/antd.css';
 import { makeStyles } from '@material-ui/styles';
 import { useMockableJsonFetch } from './hook'
-import { ExplorePage, CategoryPage } from './page'
+import { ExplorePage, CategoryPage, BookInfoPage } from './page'
 import * as Event from './event'
 import Debugger from './Debugger'
 import * as Config from './Config'
 
+//#region 初始化配置
 moment.locale('zh-cn');
-
 useMockableJsonFetch.enableMock = Config.enableMock
-const defaultPageKey = 'explore'
+const { location, history } = window
+//#endregion 初始化配置
 
+const defaultPageKey = 'explore'
 const pageMap = {
   explore: {
     name: '探索',
@@ -26,11 +28,29 @@ const pageMap = {
   category: {
     name: '分类',
     component: CategoryPage,
+  },
+  book: {
+    name: '图书详情',
+    component: BookInfoPage
   }
 }
 
+//#region AppContext 和初始化
 const AppContext = React.createContext();
-const { location, history } = window
+const defaultContext = {
+  title: null,
+  user: null,
+  compactedLayout: false,
+  collapseSider: true,
+  browsingBookId: null
+}
+const splitedPath = location.pathname.split('/');
+const keyInUrl = splitedPath[1]
+const possibleBookId = splitedPath[2]
+defaultContext.pageKey = (keyInUrl in pageMap) ? keyInUrl : defaultPageKey
+if (defaultContext.pageKey === 'book' && possibleBookId)
+  defaultContext.browsingBookId = possibleBookId
+//#endregion AppContext 和初始化
 
 const useAppStyles = makeStyles({
   RootLayout: {
@@ -51,57 +71,40 @@ const useAppStyles = makeStyles({
       textOverflow: 'ellipsis',
       flexGrow: 1
     }
+  },
+  Sider: {
+    position: 'fixed',
+    top: 0,
+    right: 0,
+    bottom: 0
+  },
+  UserButton: {
+    margin: '0 1rem'
   }
 })
 
-function Header() {
-  const { pageKey, title, user, dispatch } = useContext(AppContext)
-  const pageList = ['explore']
-  if (Config.enableCategoryModule) pageList.push('category')
-
-  const styles = useAppStyles()
-  const hasLogin = Boolean(user)
-
-  return <Layout.Header className={styles.Header}>
-    {title ?
-      <Typography.Title level={1}>{title}</Typography.Title>
-      : <div style={{ flexGrow: 1 }} />
-    }
-    <Menu
-      style={{ lineHeight: '64px', marginRight: '2rem' }}
-      theme="dark"
-      mode="horizontal"
-      selectedKeys={[`${pageKey}`]}
-      onClick={({ key }) => {
-        dispatch(new Event.PageEvent(key))
-      }}
-    >
-      {
-        pageList.map(key =>
-          <Menu.Item key={key}>
-            {pageMap[key].name}
-          </Menu.Item>)
-      }
-    </Menu>
-    {
-      hasLogin
-        ? <Button shape="round" icon="user">我</Button>
-        : <Button ghost shape="round" icon="login">管理员</Button>
-    }
-  </Layout.Header>
-}
-
+//#region 事件处理器和 reducer
+class ConfigLoadedEvent { constructor(data) { this.data = data } }
 const handlerMapper = {
-  [Event.ConfigLoadedEvent]: (state, { data: { name } }) => {
+  [ConfigLoadedEvent]: (state, { data: { name } }) => {
     document.title = state.title = name
   },
-  [Event.PageEvent]: (state, { key }) => {
-    if (state.pageKey !== key)
-      history.pushState({ pageKey: key }, `${state.title} - ${pageMap[key].name}`, key)
+  [Event.NavigationEvent]: (state, { key }) => {
+    const newTitle = `${state.title} - ${pageMap[key].name}`
+    if (state.pageKey in pageMap)
+      history.replaceState({ pageKey: key }, `${state.title} - ${pageMap[key].name}`, `/${key}`)
+    else
+      history.pushState({ pageKey: key }, `${state.title} - ${pageMap[key].name}`, `/${key}`)
+
+    document.title = newTitle
     state.pageKey = key
   },
   [Event.GoBackEvent]: (state, event) => {
     const { state: oldState } = history
+    if (oldState) {
+      const { bookId } = oldState
+      if (bookId) state.browsingBookId = bookId
+    }
     state.pageKey = oldState ? oldState.pageKey : defaultPageKey
   },
   [Event.AdminLoginEvent]: (state, event) => {
@@ -111,7 +114,18 @@ const handlerMapper = {
   },
   [Event.AdminLogoutEvent]: (state, event) => {
     state.user = null
-  }
+  },
+  [Event.SiderCollapseEvent]: (state, event) => {
+    state.collapseSider = event.collapse
+  },
+  [Event.BrowseBookEvent]: (state, event) => {
+    const bookId = event.id
+    history.pushState({ pageKey: 'book', bookId }, `bookId:${bookId}`, `/book/${bookId}`)
+
+
+    state.browsingBookId = bookId
+    state.pageKey = 'book'
+  },
 }
 
 function eventReducer(oldState, event) {
@@ -120,16 +134,82 @@ function eventReducer(oldState, event) {
   listener(newState, event)
   return newState
 }
+//#endregion 事件处理器和 reducer
 
-function parsePageKey() {
-  const keyInUrl = location.pathname.split('/')[1]
-  return (keyInUrl in pageMap) ? keyInUrl : defaultPageKey
+//#region 引用的组件
+function NavMenu({ inSider = false }) {
+  const { pageKey, dispatch } = useContext(AppContext)
+
+  const pageList = ['explore']
+  if (Config.enableCategoryModule) pageList.push('category')
+
+  return <Menu
+    style={{ lineHeight: '64px' }}
+    theme="dark"
+    mode="horizontal"
+    selectedKeys={[`${pageKey}`]}
+    onClick={({ key }) => {
+      dispatch(new Event.NavigationEvent(key))
+    }}
+    {...inSider && { mode: 'inline' }}
+  >
+    {
+      pageList.map(key =>
+        <Menu.Item key={key}>
+          {pageMap[key].name}
+        </Menu.Item>)
+    }
+  </Menu>
 }
 
-const defaultState = {
-  title: null,
-  pageKey: parsePageKey(),
-  user: null
+function Header({ onShowSider }) {
+  const { title, user, compactedLayout } = useContext(AppContext)
+
+  const styles = useAppStyles()
+  const hasLogin = Boolean(user)
+
+  return <Layout.Header className={styles.Header}>
+    {title ?
+      <Typography.Title level={1}>{title}</Typography.Title>
+      : <div style={{ flexGrow: 1 }} />
+    }
+    {!compactedLayout && <NavMenu />}
+    {
+      hasLogin
+        ? compactedLayout
+          ? <Button className={styles.UserButton} shape="circle" icon="user" />
+          : <Button className={styles.UserButton} shape="round" icon="user">我</Button>
+        : compactedLayout
+          ? <Button className={styles.UserButton} ghost shape="circle" icon="login" />
+          : <Button className={styles.UserButton} ghost shape="round" icon="login">管理员</Button>
+    }
+    {
+      compactedLayout
+      && <Button
+        className={styles.CollapseButton}
+        icon="menu-unfold"
+        ghost
+        type="link"
+        onClick={onShowSider}
+      />
+    }
+  </Layout.Header>
+}
+
+function Sider({ collapsed, breakpointListener, onCollapse }) {
+  const { Sider: style } = useAppStyles()
+
+  return <Layout.Sider
+    className={style}
+    breakpoint="sm"
+    collapsed={collapsed}
+    collapsedWidth={0}
+    width="66vw"
+    onBreakpoint={breakpointListener}
+  >
+    <Button icon="right" style={{ width: '100%', height: '64px' }} type="link" ghost onClick={onCollapse} />
+    <NavMenu inSider />
+  </Layout.Sider>
 }
 
 function ContentContainer({ currentPageKey, footer }) {
@@ -142,30 +222,32 @@ function ContentContainer({ currentPageKey, footer }) {
     <Layout.Content style={{ padding: '1rem 3rem', flexGrow: 1, minHeight: 'auto' }}>
       {Array.from(Object.keys(pageMap)).map(key => {
         const PageComponent = pageMap[key].component
-
-        return (<div key={key} {...key !== currentPageKey && { style: { display: 'none' } }}>
-          <PageComponent />
+        const looking = key === currentPageKey
+        return (<div key={key} {...!looking && { style: { display: 'none' } }}>
+          <PageComponent isBackground={!looking} />
         </div>)
       })}
     </Layout.Content>
     {footer}
   </div>
 }
+//#endregion 引用的组件
 
 function App() {
-  const [state, dispatch] = useReducer(eventReducer, defaultState)
+  const [state, dispatch] = useReducer(eventReducer, defaultContext)
+  const [compactedLayout, setCompactedLayout] = useState(false)
 
   //#region 加载配置文件
   useAsync(async () => {
     const response = await fetch('/config.json')
-    dispatch(new Event.ConfigLoadedEvent(
+    dispatch(new ConfigLoadedEvent(
       await response.json()
     ))
   }, [])
   //#endregion 加载配置文件
 
   const styles = useAppStyles()
-  const { pageKey } = state
+  const { pageKey, collapseSider } = state
 
   useEffect(() => {
     window.addEventListener('popstate', () => {
@@ -174,20 +256,32 @@ function App() {
   }, [])
 
   return <AntdConfigProvider locale={zhCN}>
-    <AppContext.Provider value={{ ...state, dispatch }}>
+    <AppContext.Provider value={{ ...state, compactedLayout, dispatch }}>
       <Layout className={styles.RootLayout}>
-        <Header />
-        <ContentContainer
-          currentPageKey={pageKey}
-          footer={<Layout.Footer>
-            某某大学版权所有
+        <Layout onClick={() => { if (!collapseSider) dispatch(new Event.SiderCollapseEvent(true)) }}>
+          <Header
+            collapsed={collapseSider}
+            onShowSider={() => { dispatch(new Event.SiderCollapseEvent(false)) }} />
+          <ContentContainer
+            currentPageKey={pageKey}
+            footer={<Layout.Footer>
+              某某大学版权所有
             </Layout.Footer>} />
+        </Layout>
+        <Sider
+          collapsed={collapseSider}
+          breakpointListener={broken => {
+            if (!broken)
+              dispatch(new Event.SiderCollapseEvent(true))
+            setCompactedLayout(broken)
+          }}
+          onCollapse={() => { dispatch(new Event.SiderCollapseEvent(true)) }}
+        />
       </Layout>
       {Config.showDebugger && <Debugger />}
     </AppContext.Provider>
   </AntdConfigProvider >
 }
-
 
 App.Context = AppContext
 export default App;

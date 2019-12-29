@@ -4,14 +4,17 @@ export as namespace hook;
 declare namespace hook {
 
 	function useMockableJsonFetch(
-		name: String,
-		param: {
+		options: {
+			name: String;
 			url: String;
 			method?: String;
 			body?: any;
+			defaultData?: any;
+			mockData?: any;
+			blocked?: boolean = false;
+			onFinish?: (success: boolean) => void;
 		},
-		defaultData?: any,
-		mock?: any
+		dependency?: Array<any>
 	): {
 		loading: boolean;
 		success: boolean;

@@ -4,9 +4,11 @@ import { useMockableJsonFetch } from '../hook'
 import { category as virtualCategory } from '../MockData'
 
 export default function CategoryPage() {
-	const { loading, success, data } = useMockableJsonFetch('分类', {
-		url: '/category'
-	}, [], virtualCategory)
+	const { loading, success, data } = useMockableJsonFetch({
+		name: '分类',
+		url: '/category',
+		mockData: virtualCategory
+	},[])
 
 	return <Skeleton active {...{ loading }}>
 		{success

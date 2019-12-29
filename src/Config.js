@@ -8,3 +8,5 @@ export const enableCategoryModule = true
 export const showDebugger = false
 // iconfont.cn 图标集
 export const iconfontScriptUrl = '//at.alicdn.com/t/font_8d5l8fzk5b87iudi.js'
+// 限制请求数
+export const limitConnection = 32

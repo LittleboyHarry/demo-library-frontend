@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { useMockableJsonFetch } from './../hook'
 import { Card, Typography, Skeleton, Button, Result, Empty, List } from 'antd';
 import * as MockData from '../MockData'
 import { makeStyles } from '@material-ui/styles'
+import App from '../App'
+import { BrowseBookEvent } from '../event'
 
 const useStyles = makeStyles({
 	root: {
@@ -15,14 +17,17 @@ const useStyles = makeStyles({
 	}
 })
 
-export default function BookGallery() {
+export default function BookGallery({ disabled = false }) {
 	// TODO: 增加图书分页查询功能	
-
+	const { dispatch } = useContext(App.Context)
 	const styles = useStyles()
-
-	const { loading, success, data } = useMockableJsonFetch('所有图书', {
+	const { loading, success, data } = useMockableJsonFetch({
+		name: '所有图书',
 		url: '/api/book/get',
-	}, [], MockData.bookList)
+		defaultData: [],
+		mockData: MockData.bookList,
+		blocked: disabled
+	}, [])
 
 	return <div className={styles.root}>
 		<Typography.Title level={2}>书库大全</Typography.Title>
@@ -33,10 +38,14 @@ export default function BookGallery() {
 						? <List
 							grid={{ gutter: 12, xs: 1, sm: 2, md: 3, lg: 4 }}
 							dataSource={data}
-							renderItem={book => (
+							renderItem={(book, index) => (
 								<List.Item>
-									<Card type="inner" title={
-										<span title={book.name}>{book.name}</span>}
+									<Card
+										type="inner"
+										style={{ cursor: 'pointer' }}
+										onClick={() => { dispatch(new BrowseBookEvent(index)) }}
+										title={
+											<span title={book.name}>{book.name}</span>}
 									>
 										<p>作者：{book.author}</p>
 										<p>出版社：{book.press}</p>
