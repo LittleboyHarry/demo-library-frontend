@@ -7,7 +7,7 @@ import moment from 'moment';
 import 'moment/locale/zh-cn';
 import 'antd/dist/antd.css';
 import { makeStyles } from '@material-ui/styles';
-import { useMockableJsonFetch, useAppContext } from './hook'
+import { useAppContext, useLoginState } from './hook'
 import { PageKeys, PageMap } from './page'
 import Debugger from './Debugger'
 import * as Config from './Config'
@@ -15,10 +15,7 @@ import AppContext, { useAppState, navPageList } from './AppContext';
 import { PageSegueEvent, GoBackEvent, ConfigLoadedEvent, ResponsiveEvent, ShowDrawerEvent } from './event'
 import { SearchInput } from './component'
 
-//#region 初始化配置
 moment.locale('zh-cn');
-useMockableJsonFetch.enableMock = Config.enableMock
-//#endregion 初始化配置
 
 const useAppStyles = makeStyles({
   Header: {
@@ -76,6 +73,7 @@ function NavMenu({ inDrawer = false }) {
 
 function Header() {
   const { title, user, compactedLayout, showDrawer, pageKey, dispatch } = useAppContext()
+  const { isAdmin } = useLoginState()
   const styles = useAppStyles()
   const hasLogin = Boolean(user)
 
@@ -130,7 +128,7 @@ function Header() {
           ? <Button className={styles.UserButton} ghost shape="circle" icon="login" onClick={onLogin} />
           : <Button className={styles.UserButton} ghost shape="round" icon="login" onClick={onLogin}>管理员</Button>
     }
-    {!compactedLayout &&
+    {!compactedLayout && isAdmin &&
       <Popover placement="bottomRight" content="录入新书" mouseEnterDelay={1.2}>
         <Button icon="plus" size="large" ghost onClick={onRecordNewBook} type="link" />
       </Popover>}
@@ -224,14 +222,12 @@ function App() {
     }))
   }, [dispatch, breakpoint])
 
-  //#region 加载配置文件
   useAsync(async () => {
     const response = await fetch('/config.json')
     dispatch(new ConfigLoadedEvent(
       await response.json()
     ))
   }, [])
-  //#endregion 加载配置文件
 
   useEffect(() => {
     window.addEventListener('popstate', () => {

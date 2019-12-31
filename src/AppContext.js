@@ -30,6 +30,7 @@ const defaultContext = {
 	searchingValue: '',
 	globalWaiting: false,
 	modifyingBookId: null,
+	categories: null
 }
 const splitedPath = location.pathname.split('/');
 const keyInUrl = splitedPath[1]
@@ -77,8 +78,9 @@ function changeStateByPageSegueEvent(state, event) {
 }
 
 const handlerMapper = {
-	[Event.ConfigLoadedEvent]: (state, { data: { name } }) => {
+	[Event.ConfigLoadedEvent]: (state, { data: { name, categories } }) => {
 		document.title = state.title = name
+		state.categories = categories
 	},
 	[Event.GoBackEvent]: (state, event) => {
 		const { state: oldEvent } = history

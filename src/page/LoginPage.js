@@ -68,7 +68,7 @@ export default function LoginPage() {
 		<WrappedNormalLoginForm />
 		<Button onClick={() => {
 			dispatch(new LoginEvent({
-				username: '某人',
+				username: '冲虚道长',
 				isAdmin: true
 			}))
 

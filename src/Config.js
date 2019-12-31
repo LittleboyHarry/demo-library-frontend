@@ -1,5 +1,5 @@
 // 模拟请求模式
-export const enableMock = true
+export const enableMock = false
 // 启动登陆模块
 export const enableUserModule = true
 // 启动分类模块

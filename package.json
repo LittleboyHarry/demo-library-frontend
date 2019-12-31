@@ -35,5 +35,6 @@
   },
   "devDependencies": {
     "react-app-rewired": "^2.1.5"
-  }
+  },
+  "proxy": "http://localhost:8080"
 }

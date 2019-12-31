@@ -1,27 +1,22 @@
 import React from 'react'
-import { Skeleton, Card, Result, Empty, List } from 'antd';
-import { useMockableJsonFetch } from '../hook'
-import { category as virtualCategory } from '../MockData'
+import { Skeleton, Card, Empty, List } from 'antd';
+import { useAppContext } from '../hook'
 
 export default function CategoryPage({ loseFocus }) {
-	const { loading, success, data } = useMockableJsonFetch({
-		name: '分类',
-		url: '/category',
-		mockData: virtualCategory,
-		blocked: loseFocus
-	}, [])
+	const { categories } = useAppContext()
 
-	return <Skeleton active {...{ loading }}>
-		{success
-			? data.length > 0
+	return <Skeleton active loading={!categories}>
+		{
+			categories &&
+				categories.length > 0
 				? <List
 					grid={{ gutter: 4, xs: 1, sm: 2 }}
-					dataSource={data}
-					renderItem={category => (
+					dataSource={categories}
+					renderItem={({ index, name }) => (
 						<List.Item>
 							<Card>
-								{category.index}
-								{category.name}
+								{index}
+								{name}
 							</Card>
 						</List.Item>
 					)}
@@ -30,9 +25,6 @@ export default function CategoryPage({ loseFocus }) {
 					image={Empty.PRESENTED_IMAGE_SIMPLE}
 					style={{ padding: '3rem 0' }}
 					description="图生馆维护中 ……" />
-			: <Result
-				title="500"
-				subTitle="无法获取分类列表"
-			/>}
+		}
 	</Skeleton>
 }
