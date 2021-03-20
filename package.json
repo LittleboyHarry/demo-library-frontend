@@ -16,7 +16,8 @@
     "start": "react-app-rewired start",
     "build": "react-app-rewired build",
     "test": "react-app-rewired test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "serve": "nodemon serve.js"
   },
   "eslintConfig": {
     "extends": "react-app"
@@ -34,6 +35,10 @@
     ]
   },
   "devDependencies": {
+    "body-parser": "^1.19.0",
+    "express": "^4.17.1",
+    "express-form-data": "^2.0.14",
+    "nodemon": "^2.0.7",
     "react-app-rewired": "^2.1.8"
   },
   "proxy": "http://localhost:8080"
